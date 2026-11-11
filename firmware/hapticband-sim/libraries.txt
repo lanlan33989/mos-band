@@ -1,0 +1,6 @@
+PubSubClient
+ESP32Servo
+SparkFun MAX3010x Pulse and Proximity Sensor Library
+Adafruit GFX Library
+Adafruit SSD1306
+FluxGarage RoboEyes

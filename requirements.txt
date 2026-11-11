@@ -1,0 +1,14 @@
+# mos-band Python 依赖（Python 3.10+，已在 3.14 验证）
+# Windows 也可双击 software/一键装环境.bat 与 一键装实时.bat 完成安装
+
+# 基础链路：对话音频、流水线、串口 / MQTT 下发
+edge-tts>=6.1.0
+pydub>=0.25.1
+imageio-ffmpeg>=0.4.9
+pyserial>=3.5
+paho-mqtt>=2.0.0
+numpy>=1.26
+
+# 实时链路（可选）：网页按住说话 / 命令行实时听写 / 麦克风
+websocket-client>=1.6.0
+sounddevice>=0.4.6

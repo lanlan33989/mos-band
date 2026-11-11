@@ -1,0 +1,111 @@
+{
+  "_说明": "复制本文件为 config.json 后再填真实 key。config.json 含密钥：不要外发、不要进软著源码材料、不要进 git、不要镜像到工作区。",
+
+  "mode": "demo",
+  "_mode说明": "demo=逐句触发期望表为唯一触发源（ASR 提供真实转写与情感标签，LLM 证据复核）；live=规则层+LLM 实时判定",
+
+  "hr_source": "mock",
+  "_hr_source说明": "mock=用 mock_hr 注入；mqtt=订阅 wrist/bio 用 MAX30102 真值（11.7 真机联调再切）",
+  "mock_hr": 80,
+  "resting_hr": 80,
+  "threshold_hr_delta": 15,
+  "hr_calm_bpm": 30,
+  "_hr_calm说明": "心率过快时按这个节律 BPM 振动（30 = 每 2 秒一下），不随过快心率变化",
+  "hr_rhythm_beats": 7,
+  "hr_rhythm_freeze_sec": 600,
+  "_hr_rhythm说明": "一次触发固定 7 下，启动后无论心率是否回落都打完；打完冻结 600 秒（10 分钟）不再触发",
+
+  "speaker": {
+    "_说明": "本地说话人区分（演示级）：录入佩戴者声音后给每句标 wearer/other/unknown。模板只存内存、不落盘不上传、重启失效；不依赖云端 ASR",
+    "enroll_sec": 8,
+    "min_active_sec": 5,
+    "threshold": 0.82,
+    "unknown_below": 0.65,
+    "min_tag_sec": 0.4,
+    "_时长说明": "8 秒总录音；有效语音 ≥5 秒对齐阿里云声纹基础版 reg_active_speech_length=5（ISI 规定注册/认证音频均 ≤30 秒）",
+    "_阈值说明": "余弦 >=threshold 判本人，<unknown_below 判对方，中间为未判定；调试台显示每句 score 便于现场调参"
+  },
+
+  "llm": {
+    "enabled": true,
+    "_说明": "DeepSeek，OpenAI 兼容接口，标准库 urllib 即可调用，不用装 SDK",
+    "base_url": "https://api.deepseek.com/v1",
+    "api_key": "",
+    "model": "deepseek-flash",
+    "thinking": "disabled",
+    "_thinking说明": "DeepSeek 新 API（deepseek-flash / deepseek-v4-pro，deepseek-chat 已下线）默认开思考链；disabled=关思考，实时场景必开",
+    "temperature": 0.2,
+    "timeout_sec": 20,
+    "acts": ["vib1", "vib2", "vib3", "strap1", "strap2", "cool", "warm", "none"]
+  },
+
+  "asr": {
+    "provider": "cloud",
+    "_provider说明": "cloud=qwen3-asr-flash 云端（唯一 ASR）；none=跳过 ASR 用期望表文本。本地 ASR 已移除",
+    "audio_path": "dialogue.wav",
+    "_audio_path说明": "默认演示音频，不再是强制红线；命令行 --audio 可换成任意 wav（含现场录音）",
+    "audio_max_mb": 10,
+    "cloud": {
+      "enabled": true,
+      "_说明": "阿里云百炼 OpenAI 兼容接口。input_audio.data 必须是 data:audio/wav;base64,... 的 Data URI；官方明确本模型不返回时间戳，但固定返回 emotion 情感标签",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "base_url_alt": "",
+      "_base_url说明": "官方已推出业务空间专属域名 https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1 并建议迁移；填入后主域名失败会自动重试。不知道 WorkspaceId 就留空，旧域名仍可用",
+      "api_key": "",
+      "model": "qwen3-asr-flash",
+      "realtime_model": "qwen3-asr-flash-realtime",
+      "realtime_url": "wss://dashscope.aliyuncs.com/api-ws/v1/realtime",
+      "_realtime说明": "网页「按住说话」走实时版（同一把 key，后端代理 WebSocket，浏览器不能自定义 Authorization 头）；流式文字+7 类 emotion。打字/文本/Word/音频上传仍走上面的整段版 model",
+      "language": "zh",
+      "enable_itn": false,
+      "timeout_sec": 90,
+      "_emotion说明": "响应位于 choices[].message.annotations[].emotion，取值 surprised/neutral/happy/sad/disgusted/angry/fearful；happy 与 neutral 视为气氛融洽温和"
+    }
+  },
+
+  "iat": {
+    "enabled": true,
+    "_说明": "二期「边说边出」：讯飞语音听写（流式版）IAT，用电脑麦克风。一期 qwen3 demo 不受影响",
+    "host_url": "wss://iat-api.xfyun.cn/v2/iat",
+    "appid": "",
+    "api_key": "",
+    "api_secret": "",
+    "_凭据说明": "三件套在讯飞控制台-语音听写服务页的「Websocket服务接口认证信息」中，APIKey/APISecret 均为 32 位，APPID 为 8 位",
+    "language": "zh_cn",
+    "domain": "iat",
+    "accent": "mandarin",
+    "eos_ms": 10000,
+    "cooldown_sec": 8,
+    "_限制说明": "单会话最长 60 秒，程序 55 秒自动换会话；官方 bg/ed 与 ws.bg 只是端点帧偏移，不是可靠词级时间戳，故时间戳用本地时钟"
+  },
+
+  "mqtt": {
+    "broker": "broker-cn.emqx.io",
+    "port": 1883,
+    "topic_cmd": "wrist/cmd",
+    "topic_bio": "wrist/bio",
+    "client_id": "pipeline-pc"
+  },
+
+  "serial": {
+    "_说明": "端口在 Arduino IDE 的 工具-端口 里看，例如 COM3",
+    "port": "COM3",
+    "baud": 115200
+  },
+
+  "paths": {
+    "script_csv": "dialogue_script.csv",
+    "timeline_csv": "dialogue_timeline.csv",
+    "triggers_csv": "triggers.csv",
+    "asr_csv": "asr_segments.csv",
+    "audio_wav": "dialogue.wav",
+    "audio_mp3": "dialogue.mp3",
+    "audio_parts_dir": "audio_parts"
+  },
+
+  "voices": {
+    "_说明": "edge-tts 语音名，甲乙用不同声音",
+    "甲": "zh-CN-YunxiNeural",
+    "乙": "zh-CN-XiaoxiaoNeural"
+  }
+}

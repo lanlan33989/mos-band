@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>触觉社交手环 · 实时调试台</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#171e2e; --panel2:#1d2638; --line:#2a3450;
+    --tx:#e8edf7; --dim:#8b97b0; --ok:#3ddc84; --bad:#ff5c7a; --warn:#ffb454;
+    --acc:#5aa2ff; --fire:#ffd166;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{background:var(--bg); color:var(--tx); font:14px/1.6 "Microsoft YaHei",system-ui,sans-serif; padding:18px; max-width:1180px; margin:0 auto}
+  h1{font-size:19px; margin-bottom:2px}
+  .sub{color:var(--dim); font-size:12px; margin-bottom:14px}
+  .grid{display:grid; grid-template-columns: 1fr 1fr; gap:14px}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px}
+  .panel h2{font-size:13px; color:var(--dim); font-weight:600; letter-spacing:.5px; margin-bottom:10px; text-transform:uppercase}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .btn{border:1px solid var(--line); background:var(--panel2); color:var(--tx); padding:6px 12px; border-radius:8px; cursor:pointer; font-size:13px}
+  .btn:hover{border-color:var(--acc)}
+  .btn.on{border-color:var(--ok); color:var(--ok)}
+  .btn:disabled{opacity:.45; cursor:not-allowed}
+  #talkBtn{width:100%; padding:26px 0; font-size:18px; font-weight:700; border-radius:12px;
+    border:2px solid var(--acc); background:linear-gradient(180deg,#1c2a45,#16223a); color:var(--tx); cursor:pointer}
+  #talkBtn.hot{border-color:var(--fire); background:linear-gradient(180deg,#3a2f16,#2b2410); color:var(--fire)}
+  #talkBtn small{display:block; font-size:11px; font-weight:400; color:var(--dim); margin-top:4px}
+  .meter{height:10px; background:#0b101c; border-radius:6px; overflow:hidden; margin:10px 0 2px}
+  .meter i{display:block; height:100%; width:0%; background:linear-gradient(90deg,#2f6fd6,#3ddc84); transition:width .08s}
+  .asrline{font-size:11px; color:var(--dim); min-height:16px}
+  .spkbox{margin-top:10px; border-top:1px dashed var(--line); padding-top:10px}
+  .spkbox .row{margin-top:6px}
+  .spkstate{font-size:12px; color:var(--dim); min-height:18px; margin-top:4px}
+  .spkstate b{color:var(--ok)}
+  .spktag{display:inline-block; min-width:42px; margin-right:6px; padding:0 5px; border-radius:4px;
+    font-size:11px; text-align:center; background:#25324b; color:var(--dim)}
+  .spktag.wearer{background:#14392a; color:var(--ok)}
+  .spktag.other{background:#3a2430; color:var(--warn)}
+  #transcript{background:#0b101c; border:1px solid var(--line); border-radius:8px; min-height:96px;
+    max-height:170px; overflow:auto; padding:10px; font-size:14px; line-height:1.7; margin-top:8px}
+  #transcript .fin{color:var(--tx)} #transcript .cur{color:var(--acc)}
+  .feedbox{margin-top:10px; border-top:1px dashed var(--line); padding-top:10px}
+  #feedText{width:100%; min-height:56px; background:#0b101c; color:var(--tx); border:1px solid var(--line);
+    border-radius:8px; padding:8px; font:13px/1.6 "Microsoft YaHei",system-ui,sans-serif; resize:vertical}
+  #feedStream{background:#0b101c; border:1px solid var(--line); border-radius:8px; max-height:150px;
+    overflow:auto; padding:8px 10px; font-size:13px; line-height:1.8; margin-top:8px}
+  #feedStream .fs{color:var(--dim)}
+  #feedStream .fs.cur{color:var(--acc)}
+  #feedStream .fs.hit{color:var(--bad); font-weight:600}
+  .cards{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+  .card{background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px; text-align:center; transition:.15s}
+  .card b{display:block; font-size:12px; color:var(--dim); font-weight:400}
+  .card span{font-size:13px}
+  .card.flash{border-color:var(--fire); box-shadow:0 0 0 2px rgba(255,209,102,.25); background:#33290f}
+  .card.flash span{color:var(--fire)}
+  .card .t{font-size:10px; color:var(--dim)}
+  #log{background:#0b101c; border:1px solid var(--line); border-radius:8px; height:150px; overflow:auto;
+    padding:8px; font:11px/1.7 Consolas,monospace; white-space:pre-wrap}
+  .tag{display:inline-block; padding:1px 7px; border-radius:5px; font-size:11px; border:1px solid var(--line)}
+  .tag.ok{color:var(--ok); border-color:var(--ok)} .tag.bad{color:var(--bad); border-color:var(--bad)}
+  .tag.warn{color:var(--warn); border-color:var(--warn)}
+  #echo{background:#0b101c; border:1px solid var(--line); border-radius:8px; height:84px; overflow:auto;
+    padding:8px; font:11px/1.6 Consolas,monospace; white-space:pre-wrap; color:var(--dim)}
+  .kv{display:flex; justify-content:space-between; font-size:12px; padding:3px 0; border-bottom:1px dashed #222c44}
+  .kv i{color:var(--dim); font-style:normal}
+  .hint{font-size:11px; color:var(--dim); margin-top:8px; line-height:1.7}
+  .hint b{color:var(--warn)}
+  select,input{background:var(--panel2); border:1px solid var(--line); color:var(--tx); border-radius:6px; padding:4px 8px; font-size:12px}
+  .llmstat{font-size:12px; color:var(--dim)}
+  .llmstat b{color:var(--ok)}
+  /* 心跳监护仪 */
+  .hrbox{display:flex; gap:12px; margin-top:10px; align-items:stretch}
+  #hrCanvas{flex:1; min-width:0; height:110px; border:1px solid #1d3a26; border-radius:8px;
+    background-color:#07120b;
+    background-image: repeating-linear-gradient(0deg, rgba(61,220,132,.09) 0 1px, transparent 1px 18px),
+                      repeating-linear-gradient(90deg, rgba(61,220,132,.09) 0 1px, transparent 1px 18px);}
+  .hrctl{width:160px; display:flex; flex-direction:column; gap:6px; justify-content:center}
+  .hrbpm{display:flex; align-items:center; gap:6px; color:var(--ok)}
+  .hrbpm b{font-size:26px; font-family:Consolas,monospace}
+  .hrbpm span{font-size:11px; color:var(--dim)}
+  #hrDot{width:10px; height:10px; border-radius:50%; background:var(--ok); opacity:.35}
+  #hrSlider{width:100%; accent-color:#3ddc84; padding:0}
+  .gesbox{margin-top:12px; border-top:1px dashed var(--line); padding-top:10px}
+  #gestures .btn{font-size:12px}
+  #gesRx{background:#0b101c; border:1px solid var(--line); border-radius:8px; margin-top:8px;
+    padding:6px 8px; font:12px/1.7 Consolas,monospace; color:var(--dim); word-break:break-all}
+  #gesRx.ok{color:var(--ok); border-color:var(--ok)}
+</style>
+</head>
+<body>
+<h1>触觉社交手环 · 实时调试台</h1>
+<div class="sub">按住说话 → Qwen3-ASR-Flash-Realtime（流式文字 + 7 类情感）+ 本地声纹（本人 / 对方）→ 规则层 + LLM 复核/慢脑 → 下发手环 ｜ 打字/文本/Word/音频上传仍走原有云端整段转写</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>语音输入</h2>
+    <button id="talkBtn">按住说话<small>鼠标按住 / 触摸按住，或按住键盘空格 · 最长 55 秒</small></button>
+    <div class="meter"><i id="meterBar"></i></div>
+    <div class="asrline" id="asrState">ASR：未连接</div>
+    <div id="transcript"><span class="cur">（还没说话）</span></div>
+    <div class="feedbox">
+      <div style="font-size:12px; color:var(--dim); margin-bottom:6px">整段输入（不打字说话也能测）：后端拆句 → 逐句流式判定 → 触发的那句标红</div>
+      <textarea id="feedText" placeholder="手动打字：整段粘贴或输入，点「确认喂入」后逐句流式判定…"></textarea>
+      <div class="row" style="margin-top:6px">
+        <button class="btn" id="feedGo">确认喂入</button>
+        <label class="btn" for="fileText">上传 txt/md</label>
+        <input type="file" id="fileText" accept=".txt,.md" hidden>
+        <label class="btn" for="fileDocx">上传 Word</label>
+        <input type="file" id="fileDocx" accept=".docx" hidden>
+        <label class="btn" for="fileAudio">上传音频</label>
+        <input type="file" id="fileAudio" accept=".mp3,.wav,.m4a" hidden>
+      </div>
+      <div id="feedStream"><span class="fs">（喂入后这里逐句显示流式字幕；触发动作的句子标红）</span></div>
+    </div>
+    <div class="spkbox">
+      <div style="font-size:12px; color:var(--dim)">佩戴者声纹 · 本地区分「本人 / 对方」（模板只存内存，重启失效）</div>
+      <div class="row">
+        <button class="btn" id="spkEnroll">录入本人声音（8 秒）</button>
+        <button class="btn" id="spkClear">清除声纹</button>
+        <span class="spkstate" id="spkState">未录入 · 每句标 [?]</span>
+      </div>
+      <div class="meter"><i id="spkBar"></i></div>
+      <div class="asrline" id="spkHint">请连续朗读：「今天天气不错，我们周五下午三点把方案定下来，预算再对一遍。」</div>
+      <div class="asrline" id="spkTag">本句：—</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>七个输出 · 触发可视化</h2>
+    <div class="cards" id="cards"></div>
+    <div class="hint" style="margin-top:10px">触发依据（最近一条）：<span id="lastEvidence" style="color:var(--tx)">—</span></div>
+    <div class="hrbox">
+      <canvas id="hrCanvas"></canvas>
+      <div class="hrctl">
+        <div class="hrbpm"><i id="hrDot"></i><b id="hrVal">--</b><span>BPM</span></div>
+        <input type="range" id="hrSlider" min="40" max="180" step="1" value="80">
+        <div class="hint">拖动改心率，松手下发。<b>心率 ≥95 → 7 下规律振动</b>，打完<b>冻结 10 分钟</b>。节律状态：<span id="hrRhythm" style="color:var(--tx)">待命</span></div>
+        <button class="btn" id="hrUnfreeze">解除冻结</button>
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <div style="font-size:12px; color:var(--dim); margin-bottom:6px">手动测试（不经过语音，直接下发，用来单独验硬件）</div>
+      <div class="row" id="manual"></div>
+      <div class="hint">点任意动作 → 若硬件侧显示「固件已确认」而实物没动，就是接线问题；若连回显都没有，先看固件是否在跑、COM 口是否被 Arduino 串口监视器占用。</div>
+    </div>
+    <div class="gesbox">
+      <div style="font-size:12px; color:var(--dim); margin-bottom:6px">触摸上行 · 六手势（语义 v1.3）：输出频率 <span id="gesTempo" style="color:var(--acc)">x1.0</span> · 最近手势 <span id="lastGesture" style="color:var(--tx)">—</span></div>
+      <div class="row" id="gestures"></div>
+      <div id="gesRx">等待手势消息…（点上面任意手势按钮，或在 Wokwi 里做手势；消息到达时这里变绿）</div>
+      <div class="hint">AI 输出后 <b>3 秒内</b> tap1=肯定 / tap2=否定（写入训练集 feedback.csv）；窗口外 tap=戳住此刻（pins.csv，之后可在手机回看转写）。swipe up/down 调 AI 输出频率（改触发冷却）。rub=摸头。所有手势、AI 自己的七个输出信号都会驱动 Wokwi 表情屏；没人下指令时屏幕每 6-14 秒也会自主眨眼/东张西望/卖萌，眼睛始终居中。所有手势写入记忆 memory.csv，定期由 LLM 压缩成摘要。</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>下发与硬件诊断</h2>
+    <div class="row" style="margin-bottom:8px">
+      <span style="font-size:12px;color:var(--dim)">通道：</span>
+      <button class="btn ch" data-ch="mock">mock 只可视化</button>
+      <button class="btn ch" data-ch="serial">串口真下发</button>
+      <button class="btn ch" data-ch="mqtt">MQTT</button>
+      <select id="comPort"><option>枚举中…</option></select>
+      <button class="btn" id="portRefresh" title="重新扫描本机串口">刷新</button>
+    </div>
+    <div class="kv"><i>软件侧（判定 + 下发）</i><span id="swState" class="tag">待触发</span></div>
+    <div class="kv"><i>硬件侧（固件回显确认）</i><span id="hwState" class="tag">—</span></div>
+    <div id="echo">（串口模式下，固件回显会显示在这里）</div>
+    <div class="hint">
+      <b>怎么判断问题在哪一侧：</b><br>
+      ① 出了字 → 实时 ASR（Qwen3-ASR-Flash-Realtime）通了（软件 OK）<br>
+      ② 卡片亮 + 指令日志出现 → 判定与下发链路通（软件 OK）<br>
+      　· 7 类情感按句喂给 LLM 复核与慢脑：cool / warm 判据受情感影响，其余五个输出只看文本与计时<br>
+      ③ 硬件侧显示「固件已确认」但实物没动 → <b>硬件问题</b>（接线 / 供电 / 继电器极性）<br>
+      ④ 软件已发但「无固件回显」 → 固件没跑 / COM 号不对 / 被串口监视器占用<br>
+      ⑤ 连字都没有 → ASR / 网络问题（软件侧）<br>
+      串口下拉框列出的是电脑<b>真实存在的串口</b>（含蓝牙/主板占用的虚拟口）；手环插上后多出来的那个（常见 USB-SERIAL CH340 / CP210x）就是它，选错换一个即可。纯充电线插上不会出现新串口。
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>事件日志与 LLM 复核</h2>
+    <div class="row" style="margin-bottom:8px">
+      <span class="llmstat" id="llmStat">LLM：加载中</span>
+      <button class="btn" id="thinkToggle">思考链：关（约 0.7s）</button>
+      <button class="btn" id="brainToggle">脑模式：双脑</button>
+    </div>
+    <div class="hint">思考链开关实时生效（不用刷新）：关=秒回，适合现场；开=慢 1.6 秒左右但复核更稳。改动只影响本次运行，config.json 不变。</div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+var ACTS = {vib1:"振动一下", vib2:"振动两下", vib3:"振动三下",
+            strap1:"收紧 1 档", strap2:"收紧 2 档", cool:"凉", warm:"热"};
+var talking = false, ctx = null, stream = null, proc = null;
+var talkStart = 0, lastText = "", turnText = "", safetyTimer = null, asrSid = "";
+var asrQueue = Promise.resolve();
+var srcNode = null, audioWired = false;
+var transcriptEl = document.getElementById("transcript");
+
+// ---------- 七个输出卡片 ----------
+var cardsEl = document.getElementById("cards");
+var cardMap = {};
+Object.keys(ACTS).forEach(function(a){
+  var d = document.createElement("div");
+  d.className = "card";
+  d.innerHTML = "<b>" + a + "</b><span>" + ACTS[a] + "</span><i class='t'>&nbsp;</i>";
+  cardsEl.appendChild(d);
+  cardMap[a] = d;
+});
+function flashCard(act, t){
+  var d = cardMap[act];
+  if(!d) return;
+  d.classList.add("flash");
+  d.querySelector("i").textContent = t || "";
+  setTimeout(function(){ d.classList.remove("flash"); }, 2200);
+}
+// 手动测试按钮
+var manualEl = document.getElementById("manual");
+Object.keys(ACTS).forEach(function(a){
+  var b = document.createElement("button");
+  b.className = "btn"; b.textContent = a + " " + ACTS[a];
+  b.onclick = function(){ post("/api/act", {act:a}); };
+  manualEl.appendChild(b);
+});
+
+// ---------- 工具 ----------
+function post(path, obj){
+  return fetch(path, {method:"POST", headers:{"Content-Type":"application/json"},
+                      body: JSON.stringify(obj || {})}).then(function(r){ return r.json(); });
+}
+function logLine(s, cls){
+  var el = document.getElementById("log");
+  var d = document.createElement("div");
+  if(cls) d.style.color = cls;
+  d.textContent = new Date().toLocaleTimeString("zh-CN",{hour12:false}) + "  " + s;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+function setState(id, text, cls){
+  var el = document.getElementById(id);
+  el.textContent = text;
+  el.className = "tag " + (cls || "");
+}
+function bytesToB64(u8){
+  var s = "", CH = 2048;
+  for(var i = 0; i < u8.length; i += CH){
+    s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+  }
+  return btoa(s);
+}
+
+// ---------- SSE：后端事件 ----------
+var es = new EventSource("/api/events");
+es.addEventListener("trigger", function(e){
+  var d = JSON.parse(e.data);
+  flashCard(d.act, d.t);
+  document.getElementById("lastEvidence").textContent = d.source + "：" + d.evidence;
+  // 节律振动每秒一拍：卡片照闪，但日志只在启动时记一条，不刷屏
+  if(d.source !== "心率节律"){
+    logLine("[触发] " + d.act + " " + d.cn + "  依据：" + d.evidence, "#ffd166");
+  }
+  // 喂入模式下：当前这句触发了动作 → 字幕标红
+  if(feedActive && feedCur >= 0 && feedEl[feedCur]){
+    feedEl[feedCur].classList.add("hit");
+    feedEl[feedCur].classList.remove("cur");
+  }
+});
+es.addEventListener("sent", function(e){
+  var d = JSON.parse(e.data);
+  setState("swState", "已发 " + d.cmd + " (" + d.channel + ")", "ok");
+  if(d.hw && d.hw.confirmed){
+    setState("hwState", "固件已确认执行", "ok");
+    logLine("下发 " + d.cmd + " -> 硬件确认", "#3ddc84");
+  } else if(d.ok){
+    setState("hwState", d.channel === "mock" ? "mock 未接硬件（正常）" : "已发，无固件回显", "warn");
+    logLine("下发 " + d.cmd + " -> " + (d.channel === "mock" ? "mock" : "无硬件回显"));
+  } else {
+    setState("hwState", "下发失败", "bad");
+    logLine("下发 " + d.cmd + " 失败：" + (d.hw ? d.hw.echo : ""), "#ff5c7a");
+  }
+  if(d.hw && d.hw.echo){
+    var ec = document.getElementById("echo");
+    ec.textContent = d.hw.echo + "\n" + ec.textContent;
+  }
+});
+es.addEventListener("llm", function(e){
+  var d = JSON.parse(e.data);
+  logLine("[LLM复核] " + d.act + " -> " + d.verdict + (d.evidence ? "（" + d.evidence + "）" : ""), "#8b97b0");
+});
+es.addEventListener("log", function(e){ logLine(JSON.parse(e.data).line); });
+es.addEventListener("feed_start", function(e){
+  var d = JSON.parse(e.data);
+  feedActive = true; feedCur = -1;
+  feedStreamEl.innerHTML = ""; feedEl = {};
+  logLine("[喂入] " + d.source + " 共 " + d.total + " 句，逐句流式判定…", "#5aa2ff");
+});
+es.addEventListener("feed_piece", function(e){
+  var d = JSON.parse(e.data);
+  // 实时语音与整段喂入共用同一条逐句字幕链路（含触发句标红）
+  if(d.source === "实时语音"){ feedActive = true; }
+  feedCur = d.i;
+  if(feedEl[d.i - 1]){ feedEl[d.i - 1].classList.remove("cur"); }
+  var div = document.createElement("div");
+  div.className = "fs cur"; div.id = "fs" + d.i;
+  // 实时语音句前置说话人标签；整段喂入仍是纯文字字幕
+  div.innerHTML = (d.source === "实时语音" ? spkTagHtml(d.speaker) : "") +
+                  "<span class='txt'></span>";
+  div.querySelector(".txt").textContent = d.text;
+  feedStreamEl.appendChild(div);
+  feedStreamEl.scrollTop = feedStreamEl.scrollHeight;
+  feedEl[d.i] = div;
+});
+es.addEventListener("feed_done", function(e){
+  feedActive = false;
+  logLine("[喂入] 流式判定会话结束", "#5aa2ff");
+});
+// 按住说话 / 松开：清空字幕区，保留 6.5 秒标红窗口（静音窗口触发的动作也要标红）
+es.addEventListener("talk", function(e){
+  var d = JSON.parse(e.data);
+  if(d.talking){
+    feedStreamEl.innerHTML = ""; feedEl = {}; feedCur = -1; feedActive = true;
+    var tip = document.createElement("div");
+    tip.className = "fs"; tip.textContent = "实时语音：正在听…（每说完一句就在这里逐句上屏）";
+    feedStreamEl.appendChild(tip);
+  } else {
+    setTimeout(function(){ feedActive = false; }, 6500);
+  }
+});
+
+// ---------- 整段喂入：打字 / txt·md / Word / 音频 ----------
+var feedStreamEl = document.getElementById("feedStream");
+var feedEl = {}, feedCur = -1, feedActive = false;
+function sendFeed(text, source){
+  post("/api/feed", {text:text, source:source}).then(function(r){
+    if(!r.ok){ logLine("喂入失败：" + (r.error || "未知错误"), "#ff5c7a"); }
+  });
+}
+document.getElementById("feedGo").onclick = function(){
+  var t = document.getElementById("feedText").value.trim();
+  if(!t){ logLine("先输入文本再点「确认喂入」", "#ffb454"); return; }
+  sendFeed(t, "手动输入");
+};
+document.getElementById("fileText").onchange = function(){
+  var f = this.files[0]; this.value = ""; if(!f) return;
+  f.text().then(function(t){ sendFeed(t, f.name); });
+};
+document.getElementById("fileDocx").onchange = function(){
+  var f = this.files[0]; this.value = ""; if(!f) return;
+  f.arrayBuffer().then(function(buf){
+    return fetch("/api/feed-docx", {method:"POST",
+      headers:{"Content-Type":"application/octet-stream", "X-Filename":encodeURIComponent(f.name)},
+      body:buf});
+  }).then(function(r){ return r.json(); }).then(function(r){
+    if(!r.ok){ logLine("Word 喂入失败：" + (r.error || "未知错误"), "#ff5c7a"); }
+  });
+};
+document.getElementById("fileAudio").onchange = function(){
+  var f = this.files[0]; this.value = ""; if(!f) return;
+  f.arrayBuffer().then(function(buf){
+    return fetch("/api/feed-audio", {method:"POST",
+      headers:{"Content-Type":"application/octet-stream", "X-Filename":encodeURIComponent(f.name)},
+      body:buf});
+  }).then(function(r){ return r.json(); }).then(function(r){
+    if(r.ok){ logLine("[喂入] 音频已上传，云端 ASR 转写中（约十几秒），完成后自动逐句判定", "#5aa2ff"); }
+    else{ logLine("音频喂入失败：" + (r.error || "未知错误"), "#ff5c7a"); }
+  });
+};
+es.addEventListener("state", function(e){
+  var d = JSON.parse(e.data);
+  if(d.channel) markChannel(d.channel);
+  if(typeof d.llm_thinking === "boolean"){ thinkOn = d.llm_thinking; renderThink(); }
+  if(d.brain_mode){ renderBrain(d.brain_mode); }
+  if(typeof d.mock_hr === "number"){ syncHr(d.mock_hr); }
+  if(typeof d.tempo === "number"){ document.getElementById("gesTempo").textContent = "x" + d.tempo; }
+});
+
+// ---------- 心跳监护仪（整屏静态波形 + 节拍条：BPM 越高峰越密，拖动即时可见） ----------
+var hrCanvas = document.getElementById("hrCanvas");
+var hrSlider = document.getElementById("hrSlider");
+var hrVal = document.getElementById("hrVal");
+var hrDot = document.getElementById("hrDot");
+var hrBPM = 80, hrPrevT = null, hrBeatPos = 0;
+var HR_WINDOW_SEC = 6;   // 一屏固定 6 秒：峰数 = BPM / 60 * 6
+
+// PQRST：P 小鼓包 → QRS 主峰 → T 波（高斯混合）
+function hrWave(p){
+  function g(x, mu, s, a){ return a * Math.exp(-((x - mu) * (x - mu)) / (2 * s * s)); }
+  return g(p, .16, .025, .12) - g(p, .28, .012, .14) + g(p, .32, .014, 1)
+       - g(p, .37, .014, .26) + g(p, .55, .045, .22);
+}
+function hrBeats(){ return Math.max(2, hrBPM / 60 * HR_WINDOW_SEC); }
+function hrColor(){ return (hrBPM - 80 >= 15) ? "#ffd166" : "#3ddc84"; }
+function hrResize(){
+  var dpr = window.devicePixelRatio || 1;
+  hrCanvas.width = Math.max(1, hrCanvas.clientWidth * dpr);
+  hrCanvas.height = 110 * dpr;
+  hrDraw();
+}
+function syncHr(v){
+  hrBPM = v;
+  hrSlider.value = v;
+  hrVal.textContent = v;
+  hrVal.style.color = hrColor();
+  hrDraw();
+}
+function hrDraw(){
+  var ctx = hrCanvas.getContext("2d");
+  var W = hrCanvas.width, H = hrCanvas.height, dpr = window.devicePixelRatio || 1;
+  if(W < 2) return;
+  var mid = H * 0.50, amp = H * 0.40, beats = hrBeats(), color = hrColor();
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(61,220,132,.18)";
+  ctx.lineWidth = 1 * dpr;
+  ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+  // 整屏 PQRST：一屏固定 6 秒，峰数随 BPM 线性变多，拖动立刻看见变密
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.8 * dpr;
+  ctx.beginPath();
+  var step = Math.max(1, Math.round(dpr));
+  for(var px = 0; px <= W; px += step){
+    var p = (px / W * beats) % 1;
+    var y = mid - hrWave(p) * amp;
+    if(px === 0) ctx.moveTo(px, y); else ctx.lineTo(px, y);
+  }
+  ctx.stroke();
+  // 节拍条：每一拍一个小方块，峰数变化一眼可见
+  var barY = H - 11 * dpr;
+  ctx.fillStyle = color;
+  for(var b = 0; b < Math.floor(beats); b++){
+    ctx.globalAlpha = 0.45;
+    ctx.fillRect((b + .30) / beats * W - 3 * dpr, barY, 6 * dpr, 6 * dpr);
+  }
+  // 当前拍：亮点 + 竖扫描线，扫动速度也随 BPM 变快
+  var cx = (hrBeatPos % beats) / beats * W;
+  ctx.globalAlpha = 0.22;
+  ctx.fillRect(cx - 1 * dpr, 0, 2 * dpr, H);
+  ctx.globalAlpha = 1;
+  ctx.beginPath(); ctx.arc(cx, mid, 4 * dpr, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.font = Math.round(11 * dpr) + "px Consolas, monospace";
+  ctx.fillText(hrBPM + " BPM · " + Math.round(beats) + " 拍/屏" +
+               (hrBPM - 80 >= 15 ? " · 节律触发" : ""), 8 * dpr, 14 * dpr);
+  var ph = hrBeatPos % 1;
+  hrDot.style.opacity = (ph >= .28 && ph < .40) ? 1 : .35;
+  hrDot.style.background = color;
+}
+function hrFrame(t){
+  if(hrPrevT === null){ hrPrevT = t; }
+  var dt = Math.min(0.1, (t - hrPrevT) / 1000);
+  hrPrevT = t;
+  hrBeatPos = (hrBeatPos + (hrBPM / 60) * dt) % Math.max(1, hrBeats());
+  hrDraw();
+  requestAnimationFrame(hrFrame);
+}
+// 拖动中：整屏波形与节拍条立即重绘；松手才下发后端
+hrSlider.addEventListener("input", function(){
+  syncHr(parseInt(hrSlider.value, 10));
+});
+hrSlider.addEventListener("change", function(){
+  post("/api/hr", {hr: hrBPM}).then(function(r){
+    if(!r.ok){ logLine("心率下发失败：" + (r.error || "未知错误"), "#ff5c7a"); }
+  });
+});
+document.getElementById("hrUnfreeze").addEventListener("click", function(){
+  post("/api/hr/unfreeze", {}).then(function(r){
+    if(!r.ok){ logLine("解除冻结失败：" + (r.error || "未知错误"), "#ff5c7a"); return; }
+    clearFreezeUI();
+    logLine("[心率] 已解除冻结（清除 " + r.cleared_freeze + " 秒）· 拨回 80 再拨到 ≥95 可重拍", "#5aa2ff");
+  });
+});
+window.addEventListener("resize", hrResize);
+hrResize();
+requestAnimationFrame(hrFrame);
+
+// ---------- 触摸上行 · 六手势（语义 v1.3：反馈/戳/频率/尾巴） ----------
+var GESTS = {tap1:"肯定 / 戳住此刻", tap2:"否定 / 戳住此刻", long:"静音 / 起来（开关）",
+             swipe_up:"加大输出频率", swipe_down:"减小输出频率", rub:"摸头（开心表情）"};
+var gestWrap = document.getElementById("gestures");
+Object.keys(GESTS).forEach(function(g){
+  var b = document.createElement("button");
+  b.className = "btn"; b.textContent = g + " · " + GESTS[g];
+  b.onclick = function(){
+    post("/api/gesture", {g:g}).then(function(r){
+      if(!r.ok){ logLine("手势下发失败：" + (r.error || "未知错误"), "#ff5c7a"); }
+    });
+  };
+  gestWrap.appendChild(b);
+});
+// 心率节律：7 下进度 + 完成后 10 分钟冻结倒计时
+var hrFreezeUntil = 0, hrFreezeTimer = null;
+function renderFreeze(){
+  var left = Math.max(0, Math.ceil((hrFreezeUntil - Date.now()) / 1000));
+  var el = document.getElementById("hrRhythm");
+  if(left > 0){
+    var m = Math.floor(left / 60), s = left % 60;
+    el.textContent = "7 下已完成 · 冻结中 " + m + ":" + (s < 10 ? "0" : "") + s;
+    el.style.color = "#8892a4";
+  } else {
+    el.textContent = "待命";
+    el.style.color = "var(--tx)";
+    if(hrFreezeTimer){ clearInterval(hrFreezeTimer); hrFreezeTimer = null; }
+  }
+}
+function clearFreezeUI(){
+  hrFreezeUntil = 0;
+  if(hrFreezeTimer){ clearInterval(hrFreezeTimer); hrFreezeTimer = null; }
+  renderFreeze();
+}
+es.addEventListener("hr_unfreeze", function(e){ clearFreezeUI(); });
+es.addEventListener("hr_rhythm", function(e){
+  var d = JSON.parse(e.data);
+  var el = document.getElementById("hrRhythm");
+  if(d.active){
+    el.textContent = "振动中 · " + d.total + " 下 · " + d.bpm + " BPM（每 " + (60/d.bpm).toFixed(1) + " 秒一下）";
+    el.style.color = "#ffd166";
+    logLine("[心率] 过快 -> 启动 " + d.total + " 下节律振动（" + d.bpm + " BPM）", "#ffd166");
+  } else if(d.reason === "completed"){
+    hrFreezeUntil = Date.now() + (d.freeze_sec || 600) * 1000;
+    renderFreeze();
+    if(hrFreezeTimer){ clearInterval(hrFreezeTimer); }
+    hrFreezeTimer = setInterval(renderFreeze, 1000);
+    logLine("[心率] " + d.total + " 下打完 -> 冻结 " + Math.round((d.freeze_sec || 600)/60) + " 分钟", "#3ddc84");
+  }
+});
+es.addEventListener("hr_beat", function(e){
+  var d = JSON.parse(e.data);
+  var el = document.getElementById("hrRhythm");
+  el.textContent = "第 " + d.n + "/" + d.total + " 下 · " + d.bpm + " BPM";
+  el.style.color = "#ffd166";
+});
+
+es.addEventListener("gesture", function(e){
+  var d = JSON.parse(e.data);
+  document.getElementById("lastGesture").textContent =
+    d.g + "（" + d.cn + "）" + (d.published ? " · 已发 wrist/ui" : " · MQTT 未连，仅本地演示");
+  logLine("[触摸上行] " + d.g + " -> " + d.cn, "#5aa2ff");
+});
+// broker 上收到的手势（Wokwi 固件发的也会出现在这里）
+es.addEventListener("gesture_rx", function(e){
+  var d = JSON.parse(e.data);
+  var who = (d.g === "long") ? "（静音10分钟）" : "";
+  var el = document.getElementById("gesRx");
+  el.textContent = "broker 收到 wrist/ui：" + d.g + who + "  payload=" + JSON.stringify(d);
+  el.classList.add("ok");
+});
+
+// ---------- 脑模式（both 双脑 / fast 纯快脑 / slow 纯慢脑） ----------
+var brainNames = {"both": "双脑", "fast": "纯快脑", "slow": "纯慢脑"};
+var brainOrder = ["both", "fast", "slow"];
+var brainMode = "both";
+function renderBrain(m){
+  brainMode = m;
+  var b = document.getElementById("brainToggle");
+  b.textContent = "脑模式：" + brainNames[m];
+  b.classList.toggle("on", m !== "both");
+}
+document.getElementById("brainToggle").onclick = function(){
+  var next = brainOrder[(brainOrder.indexOf(brainMode) + 1) % 3];
+  post("/api/brain", {mode: next});
+};
+
+// ---------- 通道切换 ----------
+function markChannel(ch){
+  document.querySelectorAll(".ch").forEach(function(b){
+    b.classList.toggle("on", b.dataset.ch === ch);
+  });
+}
+// 串口下拉框：从后端枚举本机真实串口（显示设备名，如「COM3 · USB-SERIAL CH340」）
+function refreshPorts(keep){
+  var sel = document.getElementById("comPort");
+  fetch("/api/ports").then(function(r){ return r.json(); }).then(function(d){
+    var list = d.ports || [];
+    sel.innerHTML = "";
+    if(!list.length){
+      var o = document.createElement("option");
+      o.textContent = "未检测到串口（插上后点刷新）";
+      o.value = "";
+      sel.appendChild(o);
+      sel.disabled = true;
+      return;
+    }
+    sel.disabled = false;
+    list.forEach(function(p){
+      var o = document.createElement("option");
+      o.value = p.port;
+      o.textContent = p.desc ? (p.port + " · " + p.desc) : p.port;
+      sel.appendChild(o);
+    });
+    // 尽量保住之前选中的口（含 config 里的默认值）
+    if(keep && list.some(function(p){ return p.port === keep; })){
+      sel.value = keep;
+    }
+  }).catch(function(){ sel.innerHTML = "<option>枚举失败</option>"; });
+}
+document.querySelectorAll(".ch").forEach(function(b){
+  b.onclick = function(){
+    if(b.dataset.ch === "serial"){ refreshPorts(document.getElementById("comPort").value); }
+    post("/api/channel", {channel:b.dataset.ch, port:document.getElementById("comPort").value});
+  };
+});
+document.getElementById("portRefresh").onclick = function(){
+  refreshPorts(document.getElementById("comPort").value);
+};
+markChannel("mock");
+
+// ---------- 状态 ----------
+var thinkOn = false;
+function renderThink(){
+  var b = document.getElementById("thinkToggle");
+  b.textContent = thinkOn ? "思考链：开（约 2.3s）" : "思考链：关（约 0.7s）";
+  b.classList.toggle("on", thinkOn);
+  document.getElementById("llmStat").innerHTML =
+    "LLM：<b>deepseek-flash</b>（思考：" + (thinkOn ? "开" : "关") + "）";
+}
+document.getElementById("thinkToggle").onclick = function(){
+  post("/api/llm-thinking", {on: !thinkOn});
+};
+
+fetch("/api/state").then(function(r){ return r.json(); }).then(function(s){
+  markChannel(s.channel);
+  refreshPorts(s.serial_port || "");
+  thinkOn = !!s.llm_thinking;
+  renderThink();
+  renderBrain(s.brain_mode || "both");
+  if(typeof s.mock_hr === "number"){ syncHr(s.mock_hr); }
+  if(typeof s.tempo === "number"){ document.getElementById("gesTempo").textContent = "x" + s.tempo; }
+  if(typeof s.hr_rhythm_freeze === "number" && s.hr_rhythm_freeze > 0){
+    hrFreezeUntil = Date.now() + s.hr_rhythm_freeze * 1000;
+    renderFreeze();
+    hrFreezeTimer = setInterval(renderFreeze, 1000);
+  }
+  if(!s.llm){ document.getElementById("llmStat").textContent = "LLM：已关闭（config llm.enabled=false）"; }
+  if(s.llm_note) logLine(s.llm_note, "#ffb454");
+});
+refreshPorts("");
+
+// ---------- 麦克风 + Qwen3-ASR-Flash-Realtime（后端代理，2026-11-06） ----------
+// 实测协议：.text 事件的 text 为空、临时句在 stash（累积值）；
+// .completed 的 transcript 是最终句（带标点），两者都带顶层 emotion。
+var EMO_CN = {surprised:"惊讶", neutral:"平静", happy:"愉快", sad:"悲伤",
+              disgusted:"厌恶", angry:"愤怒", fearful:"恐惧"};
+var SPK_CN = {wearer:"本人", other:"对方", unknown:"?"};
+function spkTagHtml(sp){
+  return "<span class='spktag " + (sp || "unknown") + "'>" + (SPK_CN[sp] || "?") + "</span>";
+}
+function renderTranscript(){
+  var t = lastText + turnText;
+  var safe = t.replace(/</g, "&lt;");
+  safe = safe.replace(/\[本人\]/g, "<span class='spktag wearer'>本人</span>")
+             .replace(/\[对方\]/g, "<span class='spktag other'>对方</span>")
+             .replace(/\[\?\]/g, "<span class='spktag'>?</span>");
+  transcriptEl.innerHTML = "<span class='fin'>" + safe + "</span>" +
+    "<span class='cur'>▍</span>";
+  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+}
+es.addEventListener("asr_text", function(e){
+  var d = JSON.parse(e.data);
+  if(d.final){
+    lastText += "[" + (SPK_CN[d.speaker] || "?") + "] " + d.text;
+    turnText = "";
+  } else {
+    turnText = d.text;
+  }
+  renderTranscript();
+});
+es.addEventListener("asr_emotion", function(e){
+  var d = JSON.parse(e.data);
+  document.getElementById("asrState").innerHTML =
+    "ASR：Qwen 实时版 · 情感 <b style='color:var(--acc)'>" +
+    (EMO_CN[d.emotion] || d.emotion) + "</b>";
+});
+es.addEventListener("asr_status", function(e){
+  var d = JSON.parse(e.data);
+  if(d.state === "connected"){
+    document.getElementById("asrState").textContent = "ASR：已连接 Qwen 实时版，请说话";
+  } else if(d.state === "closed"){
+    document.getElementById("asrState").textContent = "ASR：会话已结束";
+  }
+});
+es.addEventListener("speaker_state", function(e){
+  var d = JSON.parse(e.data);
+  var el = document.getElementById("spkState");
+  if(d.enrolled){
+    el.innerHTML = "已录入 · <b>模板就绪</b> " + (d.enrolled_at || "");
+  } else {
+    el.textContent = "未录入 · 每句标 [?]";
+  }
+});
+es.addEventListener("speaker_tag", function(e){
+  var d = JSON.parse(e.data);
+  var cn = SPK_CN[d.speaker] || "?";
+  document.getElementById("spkTag").innerHTML =
+    "本句：" + spkTagHtml(d.speaker) + " 相似度 <b style='color:var(--acc)'>" + d.score +
+    "</b> · 有效语音 " + (d.active_ms / 1000).toFixed(1) + "s";
+});
+
+function buildAudio(){
+  srcNode = ctx.createMediaStreamSource(stream);
+  proc = ctx.createScriptProcessor(1024, 1, 1);
+  var buf = [];
+  proc.onaudioprocess = function(ev){
+    var inp = ev.inputBuffer.getChannelData(0);
+    var data = inp;
+    if(ctx.sampleRate !== 16000){
+      var ratio = ctx.sampleRate / 16000, n = Math.floor(inp.length / ratio);
+      data = new Float32Array(n);
+      for(var i = 0; i < n; i++){ data[i] = inp[Math.floor(i * ratio)]; }
+    }
+    var sum = 0;
+    for(var j = 0; j < data.length; j++){ sum += data[j] * data[j]; }
+    var rms = Math.sqrt(sum / data.length);
+    document.getElementById("meterBar").style.width = Math.min(100, rms * 400) + "%";
+    for(var k = 0; k < data.length; k++){ buf.push(data[k]); }
+    // 1600 采样 = 3200 字节 = 100ms PCM16/16k，官方实时协议推荐块大小
+    while(buf.length >= 1600){
+      var chunk = buf.splice(0, 1600);
+      var pcm = new Int16Array(1600);
+      for(var m2 = 0; m2 < 1600; m2++){
+        var s = Math.max(-1, Math.min(1, chunk[m2]));
+        pcm[m2] = s < 0 ? s * 32768 : s * 32767;
+      }
+      var b64 = bytesToB64(new Uint8Array(pcm.buffer));
+      // 串行队列保证音频块顺序；后端把每块转成 input_audio_buffer.append
+      (function(b){
+        asrQueue = asrQueue.then(function(){
+          return post("/api/asr-rt/append", {sid:asrSid, audio:b});
+        }).catch(function(){});
+      })(b64);
+    }
+  };
+  audioWired = false;
+}
+
+function startAudio(){
+  if(audioWired || !srcNode || !proc || !ctx){ return; }
+  srcNode.connect(proc);
+  proc.connect(ctx.destination);
+  audioWired = true;
+}
+
+function startTalk(){
+  if(talking) return;
+  talking = true;
+  lastText = ""; turnText = "";
+  renderTranscript();
+  var btn = document.getElementById("talkBtn");
+  btn.classList.add("hot");
+  btn.innerHTML = "正在听…<small>松开结束</small>";
+  post("/api/asr-rt/start").then(function(r){
+    if(!r.ok){ throw new Error(r.error || "实时 ASR 启动失败"); }
+    asrSid = r.sid;
+    document.getElementById("asrState").textContent = "ASR：会话已建立，正在打开麦克风…";
+    post("/api/talk", {event:"start"});   // 静音窗口计时 + 字幕区开始接收
+    return navigator.mediaDevices.getUserMedia({
+      audio:{channelCount:1, echoCancellation:false, noiseSuppression:false, autoGainControl:false}
+    });
+  }).then(function(st){
+    if(!st){ return; }
+    stream = st;
+    try{ ctx = new AudioContext({sampleRate:16000}); }
+    catch(e){ ctx = new AudioContext(); }
+    buildAudio();
+    startAudio();
+    talkStart = Date.now();
+    safetyTimer = setInterval(function(){
+      if(talking && Date.now() - talkStart > 55000){ stopTalk(); }
+    }, 500);
+  }).catch(function(err){
+    document.getElementById("asrState").textContent = "无法开始：" + err.message;
+    logLine("启动失败：" + err.message, "#ff5c7a");
+    stopTalk();
+  });
+}
+
+function stopTalk(){
+  if(!talking){ return; }
+  talking = false;
+  var btn = document.getElementById("talkBtn");
+  btn.classList.remove("hot");
+  btn.innerHTML = "按住说话<small>鼠标按住 / 触摸按住，或按住键盘空格 · 最长 55 秒</small>";
+  if(safetyTimer){ clearInterval(safetyTimer); safetyTimer = null; }
+  if(proc){ try{ proc.disconnect(); }catch(e){} proc = null; }
+  if(srcNode){ try{ srcNode.disconnect(); }catch(e){} srcNode = null; }
+  audioWired = false;
+  if(ctx){ try{ ctx.close(); }catch(e){} ctx = null; }
+  if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+  document.getElementById("meterBar").style.width = "0%";
+  post("/api/asr-rt/stop", {sid:asrSid});   // 服务端 flush 最后一句后自动关连接
+  asrSid = "";
+  document.getElementById("asrState").textContent = "ASR：收尾中…";
+  post("/api/talk", {event:"stop"});
+}
+
+var btn = document.getElementById("talkBtn");
+btn.addEventListener("mousedown", startTalk);
+btn.addEventListener("mouseup", stopTalk);
+btn.addEventListener("mouseleave", function(){ if(talking){ stopTalk(); } });
+btn.addEventListener("touchstart", function(e){ e.preventDefault(); startTalk(); });
+btn.addEventListener("touchend", function(e){ e.preventDefault(); stopTalk(); });
+document.addEventListener("keydown", function(e){
+  if(e.code === "Space" && !e.repeat && !talking){ e.preventDefault(); startTalk(); }
+});
+document.addEventListener("keyup", function(e){
+  if(e.code === "Space" && talking){ e.preventDefault(); stopTalk(); }
+});
+
+// ---------- 佩戴者声纹录入（本地 PCM，不启动云端 ASR、不联网） ----------
+var enrollCtx = null, enrollStream = null, enrollProc = null, enrollSrc = null;
+var enrollActive = false, enrollTimer = null, enrollQueue = Promise.resolve();
+var enrollSec = 8, enrollMinActive = 5;
+
+function spkProgress(r){
+  if(!r || !r.ok){ return; }
+  var a = r.active_ms / 1000;
+  document.getElementById("spkBar").style.width =
+    Math.min(100, a / enrollMinActive * 100) + "%";
+  document.getElementById("spkHint").textContent =
+    "录入中…有效语音 " + a.toFixed(1) + " / " + enrollMinActive + " 秒";
+}
+function stopEnroll(finish){
+  if(!enrollActive && !enrollProc){ return; }
+  enrollActive = false;
+  if(enrollTimer){ clearTimeout(enrollTimer); enrollTimer = null; }
+  if(enrollProc){ try{ enrollProc.disconnect(); }catch(e){} enrollProc = null; }
+  if(enrollSrc){ try{ enrollSrc.disconnect(); }catch(e){} enrollSrc = null; }
+  if(enrollCtx){ try{ enrollCtx.close(); }catch(e){} enrollCtx = null; }
+  if(enrollStream){ enrollStream.getTracks().forEach(function(t){ t.stop(); }); enrollStream = null; }
+  var b = document.getElementById("spkEnroll");
+  b.classList.remove("on"); b.textContent = "录入本人声音（8 秒）";
+  if(finish){
+    enrollQueue = enrollQueue.then(function(){
+      return post("/api/speaker/enroll/finish", {});
+    }).then(function(r){
+      if(r.ok){
+        document.getElementById("spkHint").textContent =
+          "录入成功：有效语音 " + r.active_sec + " 秒 / 模板 " + r.dim + " 维";
+        logLine("[声纹] 模板已就绪，只存内存（重启失效）", "#3ddc84");
+      } else {
+        document.getElementById("spkHint").textContent = "录入失败：" + (r.error || "未知原因");
+        logLine("[声纹] " + (r.error || "录入失败"), "#ff5c7a");
+      }
+    }).catch(function(){});
+  }
+}
+function startEnroll(){
+  if(enrollActive){ return; }
+  if(talking){ logLine("请先松开「按住说话」再录入声纹", "#ffb454"); return; }
+  post("/api/speaker/enroll/start", {}).then(function(r){
+    if(!r.ok){ throw new Error(r.error || "无法开始录入"); }
+    enrollSec = r.seconds || 8; enrollMinActive = r.min_active_sec || 5;
+    document.getElementById("spkBar").style.width = "0%";
+    return navigator.mediaDevices.getUserMedia({
+      audio:{channelCount:1, echoCancellation:false, noiseSuppression:false, autoGainControl:false}
+    });
+  }).then(function(st){
+    enrollActive = true; enrollStream = st; enrollQueue = Promise.resolve();
+    try{ enrollCtx = new AudioContext({sampleRate:16000}); }
+    catch(e){ enrollCtx = new AudioContext(); }
+    enrollSrc = enrollCtx.createMediaStreamSource(st);
+    enrollProc = enrollCtx.createScriptProcessor(1024, 1, 1);
+    var buf = [];
+    enrollProc.onaudioprocess = function(ev){
+      var inp = ev.inputBuffer.getChannelData(0);
+      var data = inp;
+      if(enrollCtx.sampleRate !== 16000){
+        var ratio = enrollCtx.sampleRate / 16000, n = Math.floor(inp.length / ratio);
+        data = new Float32Array(n);
+        for(var i = 0; i < n; i++){ data[i] = inp[Math.floor(i * ratio)]; }
+      }
+      for(var j = 0; j < data.length; j++){ buf.push(data[j]); }
+      while(buf.length >= 1600){
+        var chunk = buf.splice(0, 1600);
+        var pcm = new Int16Array(1600);
+        for(var k = 0; k < 1600; k++){
+          var v = Math.max(-1, Math.min(1, chunk[k]));
+          pcm[k] = v < 0 ? v * 32768 : v * 32767;
+        }
+        var b64 = bytesToB64(new Uint8Array(pcm.buffer));
+        (function(b){
+          enrollQueue = enrollQueue.then(function(){
+            return post("/api/speaker/enroll/append", {audio:b});
+          }).then(function(r){ spkProgress(r); }).catch(function(){});
+        })(b64);
+      }
+    };
+    enrollSrc.connect(enrollProc);
+    enrollProc.connect(enrollCtx.destination);
+    var b = document.getElementById("spkEnroll");
+    b.classList.add("on"); b.textContent = "录入中…（点此提前结束）";
+    document.getElementById("spkHint").textContent = "录入中…请连续朗读上方文案";
+    enrollTimer = setTimeout(function(){ stopEnroll(true); }, enrollSec * 1000);
+  }).catch(function(err){
+    document.getElementById("spkHint").textContent = "无法开始：" + err.message;
+    logLine("[声纹] " + err.message, "#ff5c7a");
+    stopEnroll(false);
+  });
+}
+document.getElementById("spkEnroll").onclick = function(){
+  if(enrollActive){ stopEnroll(true); } else { startEnroll(); }
+};
+document.getElementById("spkClear").onclick = function(){
+  stopEnroll(false);
+  post("/api/speaker/clear", {}).then(function(){
+    document.getElementById("spkBar").style.width = "0%";
+    document.getElementById("spkHint").textContent =
+      "请连续朗读：「今天天气不错，我们周五下午三点把方案定下来，预算再对一遍。」";
+  });
+};
+fetch("/api/state").then(function(r){ return r.json(); }).then(function(d){
+  var s = d.speaker || {};
+  if(s.enrolled){
+    document.getElementById("spkState").innerHTML =
+      "已录入 · <b>模板就绪</b> " + (s.enrolled_at || "");
+  }
+  enrollSec = s.enroll_sec || 8; enrollMinActive = s.min_active_sec || 5;
+}).catch(function(){});
+
+logLine("调试台已就绪。mock 模式只做可视化；要验硬件请切「串口真下发」。");
+</script>
+</body>
+</html>

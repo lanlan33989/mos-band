@@ -1,0 +1,46 @@
+# 真实密钥：只提交 config.example.json，永远不要提交 config.json
+software/config.json
+.env
+.env.*
+*.key
+*.pem
+
+# Python 运行时
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+
+# 调试台运行时生成物（日志 / 记忆 / 反馈 / 音频 / 中间表）
+software/.channel
+software/memory.csv
+software/feedback.csv
+software/pins.csv
+software/dialogue.wav
+software/dialogue.mp3
+software/audio_parts/
+software/dialogue_timeline.csv
+software/asr_segments.csv
+software/triggers.csv
+software/realtime_triggers.csv
+*.log
+
+# Wokwi CLI / VS Code 本地产物与快照
+.wokwi/
+*.vcd
+.playwright-cli/
+
+# 系统与编辑器
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 非开源材料：比赛 / 商业 / 采购 / 视频音频素材 / 内部工作记录
+比赛提交物/
+视频素材/
+科普片样片/
+.workbuddy/
+_过程稿/
